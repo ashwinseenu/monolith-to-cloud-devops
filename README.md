@@ -17,3 +17,37 @@ RDS-backed MySQL database
 Process management and auto-restart using PM2 + systemd
 
 Real-time EC2 metadata visibility (Instance ID & AZ)
+
+
+Flow Diagram:
++----------------------+
+|      End User        |
+|  (Browser / Client)  |
++----------+-----------+
+           |
+           | HTTP (3000)
+           v
++-------------------------------+
+|        Amazon EC2             |
+|-------------------------------|
+|  Node.js Monolithic App       |
+|  - Express                    |
+|  - CRUD UI                    |
+|                               |
+|  PM2 + systemd                |
+|                               |
+|  Reads EC2 Metadata           |
+|  (Instance ID, AZ)            |
++---------------+---------------+
+                |
+                | MySQL (3306)
+                v
++-------------------------------+
+|        Amazon RDS             |
+|          MySQL                |
+|   Persistent Inventory DB     |
++-------------------------------+
+
+CloudFormation
+ └─ Provisions EC2 + RDS
+ └─ Injects DB_HOST / DB_USER / DB_PASS
