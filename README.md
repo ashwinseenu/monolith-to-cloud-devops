@@ -20,6 +20,7 @@ Real-time EC2 metadata visibility (Instance ID & AZ)
 
 
 Flow Diagram:
+
 +----------------------+
 |      End User        |
 |  (Browser / Client)  |
@@ -51,3 +52,4 @@ Flow Diagram:
 CloudFormation
  └─ Provisions EC2 + RDS
  └─ Injects DB_HOST / DB_USER / DB_PASS
+
