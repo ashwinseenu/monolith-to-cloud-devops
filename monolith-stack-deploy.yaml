@@ -1,0 +1,15 @@
+template-file-path: monolith-stack.yaml
+parameters:
+  # Uses 'ssm-secure' to decrypt the value at deployment time
+  KeyName: "{{resolve:ssm-secure:/monolith/dev/ec2-key}}"
+  
+  # Uses 'ssm' which reads standard text strings
+  DBMasterPassword: "{{resolve:ssm:/monolith/dev/dbkey}}"
+
+  # Non-sensitive items
+  GitRepoUrl: "https://github.com/ashwinseenu/monolith-to-cloud-devops.git"
+  DBMasterUser: "admin"
+  InstanceType: "t3.micro" 
+
+tags:
+  Environment: "dev"
