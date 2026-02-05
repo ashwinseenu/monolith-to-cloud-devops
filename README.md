@@ -19,37 +19,24 @@ Process management and auto-restart using PM2 + systemd
 Real-time EC2 metadata visibility (Instance ID & AZ)
 
 
-Flow Diagram:
+flowchart TD
+    User[End User / Browser]
 
-+----------------------+
-|      End User        |
-|  (Browser / Client)  |
-+----------+-----------+
-           |
-           | HTTP (3000)
-           v
-+-------------------------------+
-|        Amazon EC2             |
-|-------------------------------|
-|  Node.js Monolithic App       |
-|  - Express                    |
-|  - CRUD UI                    |
-|                               |
-|  PM2 + systemd                |
-|                               |
-|  Reads EC2 Metadata           |
-|  (Instance ID, AZ)            |
-+---------------+---------------+
-                |
-                | MySQL (3306)
-                v
-+-------------------------------+
-|        Amazon RDS             |
-|          MySQL                |
-|   Persistent Inventory DB     |
-+-------------------------------+
+    CF[AWS CloudFormation]
+
+    EC2[Amazon EC2\nNode.js Monolithic App\nPM2 + systemd]
+    RDS[Amazon RDS\nMySQL Database]
+
+    User -->|HTTP Requests| EC2
+    EC2 -->|MySQL Queries| RDS
+
+    CF -->|Provisioning| EC2
+    CF -->|Provisioning| RDS
+
+    EC2 -->|Reads Metadata| Meta[EC2 Metadata\nInstance ID & AZ]
 
 CloudFormation
  └─ Provisions EC2 + RDS
  └─ Injects DB_HOST / DB_USER / DB_PASS
+
 
