@@ -1,0 +1,236 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Monolith Architecture for mysql console ui with nodejs rds mysql alb ec2'
+
+# ==========================================
+# 1. PARAMETERS (Inputs)
+# ==========================================
+Parameters:
+  KeyName:
+    Description: Existing EC2 KeyPair for SSH access.
+    Type: AWS::EC2::KeyPair::KeyName
+
+  GitRepoUrl:
+    Description: HTTPS URL of Git repo.
+    Type: String
+    MinLength: 10
+
+  DBMasterUser:
+    Description: Database Master Username.
+    Type: String
+    Default: admin
+
+  DBMasterPassword:
+    Description: Database Master Password (Min 8 chars).
+    Type: String
+    NoEcho: true
+    MinLength: 8
+
+  InstanceType:
+    Description: Web Server Instance Type.
+    Type: String
+    Default: t3.micro
+    AllowedValues: [t2.micro, t3.micro, t3.small, t3.medium]
+
+# ==========================================
+# 2. RESOURCES
+# ==========================================
+Resources:
+  # --- NETWORK & SECURITY ---
+  MonoVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags: [{Key: Name, Value: Mono-VPC}]
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+
+  VPCGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties: {VpcId: !Ref MonoVPC, InternetGatewayId: !Ref InternetGateway}
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties: {VpcId: !Ref MonoVPC}
+
+  PublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: VPCGatewayAttachment
+    Properties: {RouteTableId: !Ref PublicRouteTable, DestinationCidrBlock: 0.0.0.0/0, GatewayId: !Ref InternetGateway}
+
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MonoVPC
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: !Select [0, !GetAZs '']
+      MapPublicIpOnLaunch: true
+
+  PublicSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MonoVPC
+      CidrBlock: 10.0.2.0/24
+      AvailabilityZone: !Select [1, !GetAZs '']
+      MapPublicIpOnLaunch: true
+
+  Subnet1Route:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: {SubnetId: !Ref PublicSubnet1, RouteTableId: !Ref PublicRouteTable}
+  Subnet2Route:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: {SubnetId: !Ref PublicSubnet2, RouteTableId: !Ref PublicRouteTable}
+
+  # --- SECURITY GROUPS ---
+  ALBSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Public Web Traffic
+      VpcId: !Ref MonoVPC
+      SecurityGroupIngress: [{IpProtocol: tcp, FromPort: 80, ToPort: 80, CidrIp: 0.0.0.0/0}]
+
+  AppSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: ALB and SSH Traffic
+      VpcId: !Ref MonoVPC
+      SecurityGroupIngress:
+        - {IpProtocol: tcp, FromPort: 3000, ToPort: 3000, SourceSecurityGroupId: !Ref ALBSG}
+        - {IpProtocol: tcp, FromPort: 22, ToPort: 22, CidrIp: 0.0.0.0/0}
+
+  DBSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Database Access
+      VpcId: !Ref MonoVPC
+      SecurityGroupIngress: [{IpProtocol: tcp, FromPort: 3306, ToPort: 3306, SourceSecurityGroupId: !Ref AppSG}]
+
+  # --- DATABASE ---
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: RDS Subnets
+      SubnetIds: [!Ref PublicSubnet1, !Ref PublicSubnet2]
+
+  RDSInstance:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      Engine: mysql
+      EngineVersion: "8.4.3"
+      DBInstanceClass: db.t3.micro
+      DBInstanceIdentifier: legacy-monolithic-db
+      MasterUsername: !Ref DBMasterUser
+      MasterUserPassword: !Ref DBMasterPassword
+      AllocatedStorage: 20
+      StorageType: gp3
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      VPCSecurityGroups: [!Ref DBSG]
+      PubliclyAccessible: false
+
+  # --- LOAD BALANCER ---
+  ALB:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: Mono-ALB
+      Scheme: internet-facing
+      Subnets: [!Ref PublicSubnet1, !Ref PublicSubnet2]
+      SecurityGroups: [!Ref ALBSG]
+      Type: application
+
+  ALBListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions: [{Type: forward, TargetGroupArn: !Ref ALBTargetGroup}]
+      LoadBalancerArn: !Ref ALB
+      Port: 80
+      Protocol: HTTP
+
+  ALBTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: Mono-TG
+      Port: 3000
+      Protocol: HTTP
+      VpcId: !Ref MonoVPC
+      TargetType: instance
+      HealthCheckPath: /
+      Matcher: {HttpCode: "200"}
+      Targets: [{Id: !Ref AppInstance}]
+
+  # ==========================================
+  # 3. COMPUTE WITH SPLIT SCRIPTS
+  # ==========================================
+  AppInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: !Ref InstanceType
+      KeyName: !Ref KeyName
+      ImageId: resolve:ssm:/aws/service/canonical/ubuntu/server/22.04/stable/current/amd64/hvm/ebs-gp2/ami-id
+      NetworkInterfaces: 
+        - AssociatePublicIpAddress: true
+          DeviceIndex: 0
+          GroupSet: [!Ref AppSG]
+          SubnetId: !Ref PublicSubnet1
+      
+      # SHELL EXECUTION
+      UserData:
+        Fn::Base64: 
+          !Sub 
+            - |
+              #!/bin/bash
+              
+              # ==================================================
+              # PHASE 1: CODE RETRIEVAL & DISTRIBUTION
+              # ==================================================
+              
+              apt-get update -y
+              apt-get install -y git
+
+              # 1. Clone to a Temporary Directory first
+              git clone ${GitUrl} /tmp/temp-repo
+
+              # 2. Copy ALL files to Home Location (/home/ubuntu)
+              cp -r /tmp/temp-repo/* /home/ubuntu/
+
+              # 3. Copy ONLY server.js to /app Folder
+              mkdir -p /home/ubuntu/app
+
+              if [ -f /tmp/temp-repo/server.js ]; then
+                  cp /tmp/temp-repo/server.js /home/ubuntu/app/
+              else
+                  echo "WARNING: server.js not found in repo"
+              fi
+
+              # 4. Remove the temp repo
+              rm -rf /tmp/temp-repo
+              
+              chown -R ubuntu:ubuntu /home/ubuntu
+
+              # ==================================================
+              # PHASE 2: EXECUTION
+              # ==================================================
+              chmod +x /home/ubuntu/set-env.sh
+              chmod +x /home/ubuntu/provision.sh
+
+              # 1. Set Secrets
+              /home/ubuntu/set-env.sh
+              
+              # 2. Run Install/Start Logic
+              /home/ubuntu/provision.sh
+
+            - { 
+                RDSEndpoint: !GetAtt RDSInstance.Endpoint.Address,
+                DBUser: !Ref DBMasterUser,
+                DBPassword: !Ref DBMasterPassword,
+                GitUrl: !Ref GitRepoUrl
+              }
+
+# ==========================================
+# 4. OUTPUTS
+# ==========================================
+Outputs:
+  LoadBalancerURL:
+    Description: Application URL
+    Value: !Join ['', ['http://', !GetAtt ALB.DNSName]]
