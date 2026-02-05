@@ -1,3 +1,6 @@
+
+![Architecture Diagram](./images/aws-monolith-arch.png)
+
 📖 Overview
 
 This repository demonstrates a legacy-style monolithic application deployed on Amazon Web Services (AWS) using Infrastructure as Code (IaC) with AWS CloudFormation.
@@ -17,6 +20,7 @@ RDS-backed MySQL database
 Process management and auto-restart using PM2 + systemd
 
 Real-time EC2 metadata visibility (Instance ID & AZ)
+
 
 
 
