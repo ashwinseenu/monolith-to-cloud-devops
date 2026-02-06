@@ -208,14 +208,25 @@ Resources:
               
               chown -R ubuntu:ubuntu /home/ubuntu
 
+              echo "Configuring Environment..."
+
+              # 5. Write Secrets to .env
+              echo "DB_HOST=${RDSEndpoint}" > /home/ubuntu/app/.env
+              echo "DB_USER=${DBUser}" >> /home/ubuntu/app/.env
+              echo "DB_PASS=${DBPassword}" >> /home/ubuntu/app/.env
+
+              # 6. Ensure the ubuntu user owns the folder and the file
+              chown -R ubuntu:ubuntu /home/ubuntu/app
+              chmod 600 /home/ubuntu/app/.env
+
               # ==================================================
               # PHASE 2: EXECUTION
               # ==================================================
-              chmod +x /home/ubuntu/set-env.sh
+              # chmod +x /home/ubuntu/set-env.sh
               chmod +x /home/ubuntu/provision.sh
 
               # 1. Set Secrets
-              /home/ubuntu/set-env.sh
+              # /home/ubuntu/set-env.sh
               
               # 2. Run Install/Start Logic
               /home/ubuntu/provision.sh
@@ -233,4 +244,5 @@ Resources:
 Outputs:
   LoadBalancerURL:
     Description: Application URL
+
     Value: !Join ['', ['http://', !GetAtt ALB.DNSName]]
