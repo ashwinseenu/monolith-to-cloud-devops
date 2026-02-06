@@ -28,5 +28,3 @@ Output: find alb.dns link in stack output section.
 
 
 
-
-
