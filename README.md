@@ -7,6 +7,7 @@ This repository demonstrates a legacy-style monolithic application deployed on A
 
 The project showcases how a traditional Node.js + MySQL monolith can be provisioned, configured, deployed, and operated in a production-like cloud environment using modern DevOps and cloud engineering best practices.
 
+
 Key highlights:
 
 Monolithic Node.js inventory application with CRUD operations
@@ -20,6 +21,7 @@ RDS-backed MySQL database
 Process management and auto-restart using PM2 + systemd
 
 Real-time EC2 metadata visibility (Instance ID & AZ)
+
 
 
 
