@@ -25,7 +25,7 @@ su - ubuntu -c '
     cd /home/ubuntu/app
 
     # Install Dotenv (Local dependency)
-    npm install dotenv
+    npm install dotenv express mysql2 body-parser
 
     # Install Project Dependencies
     if [ -f package.json ]; then
