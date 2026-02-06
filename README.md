@@ -22,6 +22,8 @@ Process management and auto-restart using PM2 + systemd
 
 Real-time EC2 metadata visibility (Instance ID & AZ)
 
+Execution: Create stack from git repo, parameter for dbkey in ssm parameterstore, keypair within same region, and submit.
+Output: find alb.dns link in stack output section.
 
 
 
