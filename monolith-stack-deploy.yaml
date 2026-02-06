@@ -1,7 +1,7 @@
 template-file-path: monolith-stack.yaml
 parameters:
   # Uses 'ssm' the value at deployment time
-  KeyName: "{{resolve:ssm:/monolith/dev/ec2k}}"
+  KeyName: "newpem"
   
   # Uses 'ssm' which reads standard text strings
   DBMasterPassword: "{{resolve:ssm:/monolith/dev/dbkey}}"
@@ -14,4 +14,5 @@ parameters:
 tags:
 
   Environment: "dev"
+
 
