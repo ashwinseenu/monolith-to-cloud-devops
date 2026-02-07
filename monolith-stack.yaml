@@ -239,6 +239,17 @@ Resources:
       HealthCheckType: ELB
       HealthCheckGracePeriod: 300
 
+  CPUScalingPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AutoScalingGroupName: !Ref AppAutoScalingGroup
+      PolicyType: TargetTrackingScaling
+      TargetTrackingConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ASGAverageCPUUtilization
+        TargetValue: 25.0 # CPU Utilization Target
+        DisableScaleIn: false # Allows Scale Down 
+
 # ==========================================
 # 3. OUTPUTS
 # ==========================================
@@ -246,4 +257,3 @@ Outputs:
   LoadBalancerURL:
     Description: Application URL
     Value: !Join ['', ['http://', !GetAtt ALB.DNSName]]
-
