@@ -167,7 +167,6 @@ Resources:
         ImageId: resolve:ssm:/aws/service/canonical/ubuntu/server/22.04/stable/current/amd64/hvm/ebs-gp2/ami-id
         InstanceType: !Ref InstanceType
         KeyName: !Ref KeyName
-        SecurityGroupIds: [!Ref AppSG]
         NetworkInterfaces:
           - DeviceIndex: 0
             AssociatePublicIpAddress: true
@@ -247,3 +246,4 @@ Outputs:
   LoadBalancerURL:
     Description: Application URL
     Value: !Join ['', ['http://', !GetAtt ALB.DNSName]]
+
