@@ -1,5 +1,5 @@
 
-![Architecture Diagram](./images/aws-monolith-arch2.png)
+![Architecture Diagram](./images/aws-monolith-arch3.png)
 
 📖 Overview
 
@@ -24,6 +24,7 @@ Real-time EC2 metadata visibility (Instance ID & AZ)
 
 Execution: Create stack from git repo, parameter for dbkey in ssm parameterstore, keypair within same region, and submit.
 Output: find alb.dns link in stack output section.
+
 
 
 
