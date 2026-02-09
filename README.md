@@ -5,69 +5,75 @@ This project automates the deployment of a scalable Three-Tier Architecture on A
 
 Architecture
 
-We use a standard 3-tier pattern to decouple the application logic from the database and public interface.
+  We use a standard 3-tier pattern to decouple the application logic from the database and public interface.
 
-Presentation: Application Load Balancer (ALB) handles SSL offloading and traffic distribution.
+  Presentation: Application Load Balancer (ALB) handles SSL offloading and traffic distribution.
 
-Application: Node.js running on Ubuntu 24.04 LTS. Instances are managed by an Auto Scaling Group (ASG) for elasticity.
+  Application: Node.js running on Ubuntu 24.04 LTS. Instances are managed by an Auto Scaling Group (ASG) for elasticity.
 
-Data: Amazon RDS (MySQL 8.x) sits in a private subnet.
+  Data: Amazon RDS (MySQL 8.x) sits in a private subnet.
 
 Tech Stack & Services Used
-Compute: EC2 (Ubuntu 24 LTS) + Auto Scaling Groups.
 
-Database: Amazon RDS (MySQL).
+  Compute: EC2 (Ubuntu 24 LTS) + Auto Scaling Groups.
 
-Networking: VPC, Public/Private Subnets, Route Tables, NACLs, Security Groups.
+  Database: Amazon RDS (MySQL).
 
-Process Management: PM2.
+  Networking: VPC, Public/Private Subnets, Route Tables, NACLs, Security Groups.
 
-IaC & CI/CD: AWS CloudFormation (Git Sync).
+  Process Management: PM2.
+
+  IaC & CI/CD: AWS CloudFormation (Git Sync).
 
 Configuration Notes
-A few design decisions to keep in mind for this demo:
+
+  A few design decisions to keep in mind for this demo:
 
 Secrets Management: In a real production environment, we'd strictly use AWS Systems Manager (SSM) or Secrets Manager. For this public demo, the database password is hardcoded in the template to avoid extra permission setup for users cloning the repo.
 
 Env Variables: We don't use external config scripts. The EC2 UserData script injects the DB credentials directly into the PM2 ecosystem file during boot. This ensures the app always comes up with the right config without dependency issues.
 
 Deployment Guide
+
 1. Connect GitHub to AWS
-First, you need to authorize AWS to see this repo.
 
-Go to Developer Tools > Settings > Connections in the AWS Console.
+  First, you need to authorize AWS to see this repo.
 
-Create a new GitHub connection and authorize it.
+  Go to Developer Tools > Settings > Connections in the AWS Console.
 
-Here i allowed access only to this specific repo
+  Create a new GitHub connection and authorize it.
+
+  Here i allowed access only to this specific repo
 
 2. Create Stack (Git Sync)
-We deploy directly from the repo using CloudFormation's "Sync from Git" feature.
 
-Go to CloudFormation > Create Stack.
+  We deploy directly from the repo using CloudFormation's "Sync from Git" feature.
 
-Choose Sync from Git.
+  Go to CloudFormation > Create Stack.
 
-Repo Details:
+  Choose Sync from Git.
 
-Provider: GitHub.
+  Repo Details:
 
-Repository: ashwinseenu/monolith-to-cloud-devops.
+    Provider: GitHub.
 
-Branch: main.
+    Repository: ashwinseenu/monolith-to-cloud-devops.
 
-File Path: monolith-stack-deploy.yaml.
+    Branch: main.
 
-IAM Role: Select the pre-configured gitbot role.
+    File Path: monolith-stack-deploy.yaml.
+
+  IAM Role: Select the pre-configured gitbot role.
 
 Parameters:
 
-KeyName: Your existing EC2 Keypair.
+  KeyName: Your existing EC2 Keypair.
 
-DBPassword: The hardcoded password (or your own if you changed it).
+  DBPassword: The hardcoded password (or your own if you changed it).
 
-InstanceType: t2.micro or t3.micro.
+  InstanceType: t2.micro or t3.micro.
 
 Deploy: Acknowledge the IAM creation capabilities and hit Submit.
+
 
 
