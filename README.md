@@ -4,6 +4,7 @@ AWS CloudFormation: 3-Tier App(Classic-Monolith)
 This project automates the deployment of a scalable Three-Tier Architecture on AWS. It leverages Infrastructure as Code (IaC) to provision a secure, production-ready environment for a Node.js application backed by a MySQL RDS database, replacing manual configuration with a repeatable CloudFormation template.
 
 Architecture
+
 We use a standard 3-tier pattern to decouple the application logic from the database and public interface.
 
 Presentation: Application Load Balancer (ALB) handles SSL offloading and traffic distribution.
@@ -68,4 +69,5 @@ DBPassword: The hardcoded password (or your own if you changed it).
 InstanceType: t2.micro or t3.micro.
 
 Deploy: Acknowledge the IAM creation capabilities and hit Submit.
+
 
