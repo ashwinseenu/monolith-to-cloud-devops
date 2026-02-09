@@ -1,4 +1,5 @@
 AWS CloudFormation: 3-Tier App(Classic-Monolith)
+
 ![Architecture Diagram](./images/aws-monolith-arch3.png)
 
 This project automates the deployment of a scalable Three-Tier Architecture on AWS. It leverages Infrastructure as Code (IaC) to provision a secure, production-ready environment for a Node.js application backed by a MySQL RDS database, replacing manual configuration with a repeatable CloudFormation template.
@@ -85,8 +86,20 @@ Once the stack is CREATE_COMPLETE, test as below
 
     Data Persistence: Add an item to the inventory via the UI. Reboot the web server. If the item is still there after the reboot, the RDS connection is solid and data is persisting correctly outside the compute layer.
 
-Lessons Learned
+Takeaway Lessons
 
+Race Conditions: CloudFormation's DependsOn handles creation order between dependent services. Strictly enforcing a resource creation only after another resource creation completion.
 
+Security Group Chaining: Replaced IP-based rules with Security Group Referencing. By allowing the App Security Group ID in the DB Security Group, we ensure access is granted regardless of dynamic IP changes.
 
+Drift & Changesets: We used Changesets to preview updates and prevent accidental replacements. Regular Drift Detection scans alerted us if manual console changes caused the live infrastructure to diverge from the template.
+
+Scale-In Latency: Delays are primarily driven by ALB Connection Draining (default 300s) allowing in-flight requests to complete. We tuned this alongside CloudWatch evaluation periods to balance cost savings with zero-downtime user experience. Also had insights of
+
+    CloudWatch Confirmation to prevent rapid scaleup and scale down (flapping).
+    ASG to ALB Communication (Detach Signal).
+    DetachLoadBalancerTarget API Call.
+    ALB's Draining Status.
+    autoscaling:EC2_INSTANCE_TERMINATING of ASG.
+    Standard 10 to 15 mins delay while scale-in.
 
