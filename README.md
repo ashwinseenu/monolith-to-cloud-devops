@@ -7,23 +7,23 @@ Architecture
 
   We use a standard 3-tier pattern to decouple the application logic from the database and public interface.
 
-  Presentation: Application Load Balancer (ALB) handles SSL offloading and traffic distribution.
+    Presentation: Application Load Balancer (ALB) handles SSL offloading and traffic distribution.
 
-  Application: Node.js running on Ubuntu 24.04 LTS. Instances are managed by an Auto Scaling Group (ASG) for elasticity.
+    Application: Node.js running on Ubuntu 24.04 LTS. Instances are managed by an Auto Scaling Group (ASG) for elasticity.
 
-  Data: Amazon RDS (MySQL 8.x) sits in a private subnet.
+    Data: Amazon RDS (MySQL 8.x) sits in a private subnet.
 
 Tech Stack & Services Used
 
-  Compute: EC2 (Ubuntu 24 LTS) + Auto Scaling Groups.
+    Compute: EC2 (Ubuntu 24 LTS) + Auto Scaling Groups.
 
-  Database: Amazon RDS (MySQL).
+    Database: Amazon RDS (MySQL).
 
-  Networking: VPC, Public/Private Subnets, Route Tables, NACLs, Security Groups.
+    Networking: VPC, Public/Private Subnets, Route Tables, NACLs, Security Groups.
 
-  Process Management: PM2.
+    Process Management: PM2.
 
-  IaC & CI/CD: AWS CloudFormation (Git Sync).
+    IaC & CI/CD: AWS CloudFormation (Git Sync).
 
 Configuration Notes
 
@@ -39,41 +39,42 @@ Deployment Guide
 
   First, you need to authorize AWS to see this repo.
 
-  Go to Developer Tools > Settings > Connections in the AWS Console.
+    Go to Developer Tools > Settings > Connections in the AWS Console.
 
-  Create a new GitHub connection and authorize it.
+    Create a new GitHub connection and authorize it.
 
-  Here i allowed access only to this specific repo
+    Here i allowed access only to this specific repo
 
 2. Create Stack (Git Sync)
 
   We deploy directly from the repo using CloudFormation's "Sync from Git" feature.
 
-  Go to CloudFormation > Create Stack.
+    Go to CloudFormation > Create Stack.
 
-  Choose Sync from Git.
+    Choose Sync from Git.
 
-  Repo Details:
+    Repo Details:
 
-    Provider: GitHub.
+      Provider: GitHub.
 
-    Repository: ashwinseenu/monolith-to-cloud-devops.
+      Repository: ashwinseenu/monolith-to-cloud-devops.
 
-    Branch: main.
+      Branch: main.
 
-    File Path: monolith-stack-deploy.yaml.
+      File Path: monolith-stack-deploy.yaml.
 
-  IAM Role: Select the pre-configured gitbot role.
+    IAM Role: Select the pre-configured gitbot role.
 
 Parameters:
 
-  KeyName: Your existing EC2 Keypair.
+    KeyName: Your existing EC2 Keypair.
 
-  DBPassword: The hardcoded password (or your own if you changed it).
+    DBPassword: The hardcoded password (or your own if you changed it).
 
-  InstanceType: t2.micro or t3.micro.
+    InstanceType: t2.micro or t3.micro.
 
 Deploy: Acknowledge the IAM creation capabilities and hit Submit.
+
 
 
 
