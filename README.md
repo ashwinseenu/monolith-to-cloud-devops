@@ -75,6 +75,18 @@ Parameters:
 
 Deploy: Acknowledge the IAM creation capabilities and hit Submit.
 
+Testing & Validation
+
+Once the stack is CREATE_COMPLETE, test as below
+
+    Resilience Test: Terminate one EC2 instances in the console. Watch the Auto Scaling Group detect the health check failure and spin up a replacement automatically.
+
+    Traffic Routing: With the ALB DNS URL, initiate sessions from multiple browser environment or sessions to check whether traffic routed to different instances in different availability zones.
+
+    Data Persistence: Add an item to the inventory via the UI. Reboot the web server. If the item is still there after the reboot, the RDS connection is solid and data is persisting correctly outside the compute layer.
+
+Lessons Learned
+
 
 
 
