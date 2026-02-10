@@ -38,7 +38,7 @@ Deployment Guide
 
 1. Connect GitHub to AWS
 
-  First, you need to authorize AWS to see this repo.
+  First, we need to authorize AWS to see this repo.
 
     Go to Developer Tools > Settings > Connections in the AWS Console.
 
@@ -64,13 +64,13 @@ Deployment Guide
 
       File Path: monolith-stack-deploy.yaml.
 
-    IAM Role: Select the pre-configured gitbot role.
+    IAM Role: Select pre-configured gitbot role.
 
 Parameters:
 
-    KeyName: Your existing EC2 Keypair.
+    KeyName: Existing EC2 Keypair.
 
-    DBPassword: The hardcoded password (or your own if you changed it).
+    DBPassword: The hardcoded password.
 
     InstanceType: t2.micro or t3.micro.
 
@@ -102,4 +102,5 @@ Scale-In Latency: Delays are primarily driven by ALB Connection Draining (defaul
     ALB's Draining Status.
     autoscaling:EC2_INSTANCE_TERMINATING of ASG.
     Standard 10 to 15 mins delay while scale-in.
+
 
