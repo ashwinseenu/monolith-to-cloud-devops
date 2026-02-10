@@ -247,7 +247,7 @@ Resources:
       TargetTrackingConfiguration:
         PredefinedMetricSpecification:
           PredefinedMetricType: ASGAverageCPUUtilization
-        TargetValue: 25.0 # CPU Utilization Target
+        TargetValue: 5.0 # CPU Utilization Target
         DisableScaleIn: false # Allows Scale Down 
 
 # ==========================================
@@ -257,3 +257,4 @@ Outputs:
   LoadBalancerURL:
     Description: Application URL
     Value: !Join ['', ['http://', !GetAtt ALB.DNSName]]
+
