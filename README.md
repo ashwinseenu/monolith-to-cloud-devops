@@ -1,6 +1,6 @@
 AWS CloudFormation: 3-Tier App(Classic-Monolith)
 
-![Architecture Diagram](./images/aws-monolith-arch4.png)
+![Architecture Diagram](./images/aws-monolith-arch5.png)
 
 This project automates the deployment of a scalable Three-Tier Architecture on AWS. It leverages Infrastructure as Code (IaC) to provision a secure, production-ready environment for a Node.js application backed by a MySQL RDS database, replacing manual configuration with a repeatable CloudFormation template.
 
@@ -102,6 +102,7 @@ Scale-In Latency: Delays are primarily driven by ALB Connection Draining (defaul
     ALB's Draining Status.
     autoscaling:EC2_INSTANCE_TERMINATING of ASG.
     Standard 10 to 15 mins delay while scale-in.
+
 
 
 
