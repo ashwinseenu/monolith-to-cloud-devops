@@ -8,11 +8,13 @@ parameters:
   # Non-sensitive items
   GitRepoUrl: "https://github.com/ashwinseenu/monolith-to-cloud-devops.git"
   DBMasterUser: "admin"
-  InstanceType: "t3.micro" 
+  InstanceType: "t2.micro" 
+  DomainName: "ashwinseenu.online"
 
 tags:
 
   Environment: "dev"
+
 
 
 
