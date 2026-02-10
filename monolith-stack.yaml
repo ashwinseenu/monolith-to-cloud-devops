@@ -34,7 +34,6 @@ Parameters:
   DomainName:
     Description: The domain name for the application (e.g., ashwinseenu.online)
     Type: String
-    Default: "ashwinseenu.online"
 
 # ==========================================
 # 2. RESOURCES
@@ -328,3 +327,4 @@ Outputs:
   Nameservers:
     Description: Nameservers
     Value: !Join [", ", !GetAtt HostedZone.NameServers]
+
