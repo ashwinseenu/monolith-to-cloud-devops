@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'Monolith Architecture for mysql console UI with NODEJS RDS MYSQL ALB EC2'
+Description: 'AWS Infra deploying nodejs app: ASG + RDS + ALB (HTTPS/Redirect) + Route53 + ACM + HostedZones'
 
 # ==========================================
 # 1. PARAMETERS
@@ -30,6 +30,11 @@ Parameters:
     Type: String
     Default: t3.micro
     AllowedValues: [t2.micro, t3.micro, t3.small, t3.medium]
+  
+  DomainName:
+    Description: The domain name for the application (e.g., ashwinseenu.online)
+    Type: String
+    Default: "ashwinseenu.online"
 
 # ==========================================
 # 2. RESOURCES
@@ -89,7 +94,9 @@ Resources:
     Properties:
       GroupDescription: Public Web Traffic
       VpcId: !Ref MonoVPC
-      SecurityGroupIngress: [{IpProtocol: tcp, FromPort: 80, ToPort: 80, CidrIp: 0.0.0.0/0}]
+      SecurityGroupIngress: 
+        - {IpProtocol: tcp, FromPort: 80, ToPort: 80, CidrIp: 0.0.0.0/0}
+        - {IpProtocol: tcp, FromPort: 443, ToPort: 443, CidrIp: 0.0.0.0/0}
 
   AppSG:
     Type: AWS::EC2::SecurityGroup
@@ -106,6 +113,24 @@ Resources:
       GroupDescription: Database Access
       VpcId: !Ref MonoVPC
       SecurityGroupIngress: [{IpProtocol: tcp, FromPort: 3306, ToPort: 3306, SourceSecurityGroupId: !Ref AppSG}]
+
+  # --- DNS ---
+  HostedZone:
+    Type: AWS::Route53::HostedZone
+    Properties: 
+      Name: !Ref DomainName
+
+  # --- CERTIFICATE MANAGER (ACM) ---
+  SSLCertificate:
+    Type: AWS::CertificateManager::Certificate
+    Properties:
+      DomainName: !Ref DomainName
+      SubjectAlternativeNames:
+        - !Sub "*.${DomainName}"
+      ValidationMethod: DNS
+      DomainValidationOptions:
+        - DomainName: !Ref DomainName
+          HostedZoneId: !Ref HostedZone
 
   # --- DATABASE ---
   DBSubnetGroup:
@@ -139,13 +164,30 @@ Resources:
       SecurityGroups: [!Ref ALBSG]
       Type: application
 
-  ALBListener:
+  ALBListenerHTTP:
     Type: AWS::ElasticLoadBalancingV2::Listener
     Properties:
-      DefaultActions: [{Type: forward, TargetGroupArn: !Ref ALBTargetGroup}]
       LoadBalancerArn: !Ref ALB
       Port: 80
       Protocol: HTTP
+      DefaultActions:
+        - Type: redirect # Redirects traffic to HTTPS Listener
+          RedirectConfig:
+            Protocol: "HTTPS"
+            Port: "443"
+            StatusCode: "HTTP_301"
+
+  ALBListenerHTTPS:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref ALB
+      Port: 443
+      Protocol: HTTPS
+      Certificates:
+        - CertificateArn: !Ref SSLCertificate
+      DefaultActions:
+        - Type: forward # Forwarding Traffic to TargetGroup
+          TargetGroupArn: !Ref ALBTargetGroup
 
   ALBTargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
@@ -157,6 +199,27 @@ Resources:
       TargetType: instance
       HealthCheckPath: /
       Matcher: {HttpCode: "200"}
+
+  # --- ROUTE 53 RECORDS ---
+  RecordSetRoot:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZone
+      Name: !Ref DomainName
+      Type: A
+      AliasTarget:
+        HostedZoneId: !GetAtt ALB.CanonicalHostedZoneID
+        DNSName: !GetAtt ALB.DNSName
+
+  RecordSetWWW:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZone
+      Name: !Sub "www.${DomainName}"
+      Type: A
+      AliasTarget:
+        HostedZoneId: !GetAtt ALB.CanonicalHostedZoneID
+        DNSName: !GetAtt ALB.DNSName
 
   # --- LAUNCH TEMPLATE ---
   AppLaunchTemplate:
@@ -182,7 +245,7 @@ Resources:
                 # PHASE 1: CODE RETRIEVAL & DISTRIBUTION
                 # ==================================================
                 apt-get update -y
-                apt-get install -y git
+                apt-get install -y git curl
 
                 # Clone Logic
                 git clone ${GitUrl} /tmp/temp-repo
@@ -254,7 +317,14 @@ Resources:
 # 3. OUTPUTS
 # ==========================================
 Outputs:
-  LoadBalancerURL:
-    Description: Application URL
-    Value: !Join ['', ['http://', !GetAtt ALB.DNSName]]
+  LoadBalancerDNS:
+    Description: Application Load Balancer DNS Name
+    Value: !GetAtt ALB.DNSName
+  
+  DomainUrl:
+    Description: Secure Application URL
+    Value: !Sub "https://${DomainName}"
 
+  Nameservers:
+    Description: Nameservers
+    Value: !Join [", ", !GetAtt HostedZone.NameServers]
