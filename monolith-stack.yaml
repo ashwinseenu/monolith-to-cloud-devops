@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'AWS Infra deploying nodejs app: ASG + RDS + ALB (HTTPS/Redirect) + Route53 + ACM + HostedZones'
+Description: 'AWS Infra deploying nodejs app: ASG + RDS + ALB (HTTPS/Redirect) + Route53 + ACM + HostedZones + LamdaFunction'
 
 # ==========================================
 # 1. PARAMETERS
@@ -312,6 +312,95 @@ Resources:
         TargetValue: 5.0 # CPU Utilization Target
         DisableScaleIn: false # Allows Scale Down 
 
+# Lambda Initiation while stack deletion process to prevent HostedZone deletion failures
+# Lamda - IAM Role Creation
+  CleanupLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: {Service: lambda.amazonaws.com}
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: Route53Cleanup
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - route53:ListResourceRecordSets
+                  - route53:ChangeResourceRecordSets
+                  - route53:GetHostedZone
+                Resource: !Sub "arn:aws:route53:::hostedzone/${HostedZone}"
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: "arn:aws:logs:*:*:*"
+
+  # The Script - Lambda Function
+  ZoneCleanupFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: index.handler
+      Role: !GetAtt CleanupLambdaRole.Arn
+      Runtime: python3.9
+      Timeout: 60
+      Code:
+        ZipFile: |
+          import boto3
+          import cfnresponse
+          import logging
+
+          logger = logging.getLogger()
+          logger.setLevel(logging.INFO)
+
+          def handler(event, context):
+              try:
+                  if event['RequestType'] == 'Delete':
+                      zone_id = event['ResourceProperties']['HostedZoneId']
+                      r53 = boto3.client('route53')
+                      
+                      # List all records
+                      logger.info(f"Listing records for zone: {zone_id}")
+                      response = r53.list_resource_record_sets(HostedZoneId=zone_id)
+                      records = response['ResourceRecordSets']
+                      
+                      # Filter out the default SOA and NS records
+                      changes = []
+                      for record in records:
+                          if record['Type'] not in ['SOA', 'NS']:
+                              changes.append({
+                                  'Action': 'DELETE',
+                                  'ResourceRecordSet': record
+                              })
+                      
+                      # Delete the leftovers
+                      if changes:
+                          logger.info(f"Deleting {len(changes)} records...")
+                          r53.change_resource_record_sets(
+                              HostedZoneId=zone_id,
+                              ChangeBatch={'Changes': changes}
+                          )
+                      else:
+                          logger.info("Zone is already clean.")
+
+                  cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
+              except Exception as e:
+                  logger.error(f"Error: {str(e)}")
+                  # Send SUCCESS anyway even stack DELETE_FAILED
+                  cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
+
+  # The Trigger for Lamda (Custom Resource)
+  ZoneCleanupTrigger:
+    Type: Custom::Route53Cleanup
+    Properties:
+      ServiceToken: !GetAtt ZoneCleanupFunction.Arn
+      HostedZoneId: !Ref HostedZone
+
 # ==========================================
 # 3. OUTPUTS
 # ==========================================
@@ -327,4 +416,3 @@ Outputs:
   Nameservers:
     Description: Nameservers
     Value: !Join [", ", !GetAtt HostedZone.NameServers]
-
