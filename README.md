@@ -36,6 +36,8 @@ Secrets Management: In a real production environment, we'd strictly use AWS Syst
 
 Env Variables: We don't use external config scripts. The EC2 UserData script injects the DB credentials directly into the PM2 ecosystem file during boot. This ensures the app always comes up with the right config without dependency issues.
 
+Certificate Handling: For Using HTTPS, We Use Certificate from AWS Certification Manager and Including it with HTTPS Listener in ALB. Setting HTTP Listener to Redirect to HTTPS Listener.
+
 Deployment Guide
 
 1. Connect GitHub to AWS
@@ -109,6 +111,7 @@ Scale-In Latency: Delays are primarily driven by ALB Connection Draining (defaul
 
 HostedZone Delete Failure: By Default, AWS Creates CNAME Record while creating HostedZone. AWS Prevents Deletion of HostedZones containing Records Otherthan Default Records(SOA & NS).
 To Ensure Proper Deletion of HostedZones while stack Deletion/Rollback, Created Lambda Function to Fetch and Delete Record other than SOA and NS. Lambda will get triggered only with Event = Delete.
+
 
 
 
