@@ -20,11 +20,13 @@ Tech Stack & Services Used
 
     Database: Amazon RDS (MySQL).
 
-    Networking: VPC, Public/Private Subnets, Route Tables, NACLs, Security Groups.
+    Networking: VPC, Public/Private Subnets, Route Tables, NACLs, Security Groups, ALB, Route53-HostedZones.
 
     Process Management: PM2.
 
     IaC & CI/CD: AWS CloudFormation (Git Sync).
+
+    Serverless: Lamda Function
 
 Configuration Notes
 
@@ -102,6 +104,9 @@ Scale-In Latency: Delays are primarily driven by ALB Connection Draining (defaul
     ALB's Draining Status.
     autoscaling:EC2_INSTANCE_TERMINATING of ASG.
     Standard 10 to 15 mins delay while scale-in.
+
+HostedZone Delete Failure: By Default, AWS Creates CNAME Record while creating HostedZone. AWS Prevents Deletion of HostedZones containing Records Otherthan Default Records(SOA & NS).
+To Ensure Proper Deletion of HostedZones while stack Deletion/Rollback, Created Lambda Function to Fetch and Delete Record other than SOA and NS. Lambda will get triggered only with Event = Delete.
 
 
 
