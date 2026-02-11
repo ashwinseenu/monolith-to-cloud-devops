@@ -76,6 +76,8 @@ Parameters:
 
     InstanceType: t2.micro or t3.micro.
 
+    DomainName: ashwinseenu.online.
+
 Deploy: Acknowledge the IAM creation capabilities and hit Submit.
 
 Testing & Validation
@@ -107,6 +109,7 @@ Scale-In Latency: Delays are primarily driven by ALB Connection Draining (defaul
 
 HostedZone Delete Failure: By Default, AWS Creates CNAME Record while creating HostedZone. AWS Prevents Deletion of HostedZones containing Records Otherthan Default Records(SOA & NS).
 To Ensure Proper Deletion of HostedZones while stack Deletion/Rollback, Created Lambda Function to Fetch and Delete Record other than SOA and NS. Lambda will get triggered only with Event = Delete.
+
 
 
 
