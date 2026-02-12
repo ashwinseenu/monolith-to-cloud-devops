@@ -1,23 +1,10 @@
 template-file-path: monolith-stack.yaml
 parameters:
-  # Uses 'ssm' the value at deployment time, aws wont pass ssm values in UserData Section, if required , configure aws cli in instance by setting account ID, ssm path, required policy for EC2 to access secrets, and get from environment.
-  KeyName: "newpem"
-
-  DBMasterPassword: "admin.3210."
-
-  # Non-sensitive items
-  GitRepoUrl: "https://github.com/ashwinseenu/monolith-to-cloud-devops.git"
-  DBMasterUser: "admin"
-  InstanceType: "t3.micro" 
-  DomainName: "ashwinseenu.online"
-
+  KeyName: newpem
+  GitRepoUrl: https://github.com/ashwinseenu/monolith-to-cloud-devops.git
+  DomainName: ashwinseenu.online
+  DBMasterUser: admin
+  DBMasterPassword: '****'
+  InstanceType: t3.micro
 tags:
-
-  Environment: "dev"
-
-
-
-
-
-
-
+  Environment: dev
