@@ -38,8 +38,8 @@ su - ubuntu -c '
     fi
 
     # Start Server with PM2
-    if [ -f server.js ]; then
-        echo "Starting server.js..."
+    if [ -f serverv2.js ]; then
+        echo "Starting serverv2.js..."
         # --node-args loads .env before the app starts
         pm2 start serverv2.js --node-args="-r dotenv/config"
         pm2 save
