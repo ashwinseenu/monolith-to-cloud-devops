@@ -251,10 +251,10 @@ Resources:
                 cp -r /tmp/temp-repo/* /home/ubuntu/
                 
                 mkdir -p /home/ubuntu/app
-                if [ -f /tmp/temp-repo/server.js ]; then
-                    cp /tmp/temp-repo/server.js /home/ubuntu/app/
+                if [ -f /tmp/temp-repo/serverv2.js ]; then
+                    cp /tmp/temp-repo/serverv2.js /home/ubuntu/app/
                 else
-                    echo "WARNING: server.js not found in repo"
+                    echo "WARNING: serverv2.js not found in repo"
                 fi
                 rm -rf /tmp/temp-repo
                 chown -R ubuntu:ubuntu /home/ubuntu
@@ -416,3 +416,4 @@ Outputs:
   Nameservers:
     Description: Nameservers
     Value: !Join [", ", !GetAtt HostedZone.NameServers]
+
