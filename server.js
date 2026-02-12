@@ -3,23 +3,32 @@ const mysql = require('mysql2');
 const bodyParser = require('body-parser');
 const http = require('http');
 const os = require('os');
+const bcrypt = require('bcryptjs');
+const session = require('express-session');
+
 const app = express();
 
+// --- MIDDLEWARE ---
 app.use(bodyParser.urlencoded({ extended: true }));
+app.use(session({
+    secret: 'inventory-secret-key',
+    resave: false,
+    saveUninitialized: false,
+    cookie: { maxAge: 3600000 } // 1 Hour
+}));
 
 // --- CONFIGURATION ---
 const dbConfig = {
-    host: process.env.DB_HOST,      // <--- INJECTED BY CLOUDFORMATION
-    user: process.env.DB_USER,      // <--- INJECTED BY CLOUDFORMATION
-    password: process.env.DB_PASS,  // <--- INJECTED BY CLOUDFORMATION
+    host: process.env.DB_HOST,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASS,
     database: 'inventory_app',
-    connectionLimit: 10,
-    waitForConnections: true
+    connectionLimit: 10
 };
 
 const pool = mysql.createPool(dbConfig);
 
-// --- METADATA ---
+// --- METADATA (EC2 Instance Tracking) ---
 let instanceId = 'Loading...';
 let availabilityZone = 'Unknown';
 
@@ -31,218 +40,174 @@ function getEc2Metadata(path, callback) {
         res.on('end', () => { callback(data); });
     });
     req.on('error', () => { callback(null); });
-    req.on('timeout', () => { req.destroy(); callback(null); });
     req.end();
 }
 getEc2Metadata('instance-id', (id) => { instanceId = id || os.hostname(); });
 getEc2Metadata('placement/availability-zone', (az) => { availabilityZone = az || 'Local'; });
 
-// --- UI & ROUTES ---
+// --- MAIN UI ROUTE ---
 app.get('/', (req, res) => {
-    res.send(`
-    <html>
-        <head>
-            <title>Monolith Dashboard</title>
-            <style>
-                body { 
-                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-                    padding: 20px; 
-                    max-width: 900px; 
-                    margin: auto; 
-                    background: #f0f2f5; 
-                }
-                
-                /* VIBRANT HEADER STYLES */
-                .server-info { 
-                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); /* Purple/Blue Gradient */
-                    color: white; 
-                    padding: 30px; 
-                    border-radius: 12px; 
-                    text-align: center; 
-                    margin-bottom: 25px; 
-                    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-                }
-                .server-info h1 { 
-                    margin: 0; 
-                    font-size: 2.5em; 
-                    text-shadow: 2px 2px 4px rgba(0,0,0,0.3); /* Makes text readable */
-                    color: #ffffff !important; /* Forces white color */
-                }
-                .server-info p { 
-                    margin-top: 10px; 
-                    font-size: 1.1em; 
-                    color: #e0e0e0; 
-                }
+    const user = req.session.user;
 
-                /* BOX STYLES */
-                .box { 
-                    background: white; 
-                    border: none; 
-                    padding: 25px; 
-                    margin-bottom: 20px; 
-                    border-radius: 12px; 
-                    box-shadow: 0 2px 10px rgba(0,0,0,0.05); 
-                    transition: transform 0.2s;
-                }
-                .box:hover { transform: translateY(-2px); }
-                h2 { margin-top: 0; color: #444; border-bottom: 2px solid #f0f0f0; padding-bottom: 10px; }
+    // Fetch comments with user details for the display
+    const commentQuery = `
+        SELECT c.content, u.username, c.created_at 
+        FROM comments c 
+        JOIN users u ON c.user_id = u.id 
+        ORDER BY c.created_at DESC LIMIT 10`;
 
-                /* INPUTS & BUTTONS */
-                input, select { 
-                    padding: 10px; 
-                    border: 1px solid #ddd; 
-                    border-radius: 6px; 
-                    margin-right: 8px; 
-                    font-size: 14px;
-                }
-                button { 
-                    cursor: pointer; 
-                    padding: 10px 20px; 
-                    color: white; 
-                    border: none; 
-                    border-radius: 6px; 
-                    font-weight: bold; 
-                    transition: opacity 0.2s;
-                    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-                }
-                button:hover { opacity: 0.9; }
-                
-                /* BUTTON COLORS */
-                button { background: #3498db; } /* Default Blue */
-                button.success { background: linear-gradient(to right, #11998e, #38ef7d); } /* Green Gradient */
-                button.danger { background: linear-gradient(to right, #cb2d3e, #ef473a); } /* Red Gradient */
-                button.warning { background: #f1c40f; color: #333; } /* Yellow */
-
-                /* IFRAME & GRID */
-                iframe { width: 100%; height: 400px; border: none; border-radius: 8px; background: #fafafa; }
-                .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-            </style>
-        </head>
-        <body>
-            <div class="server-info">
-                <h1>Legacy Monolith Dashboard 🚀</h1>
-                <p>⚡ Serving from Instance: <strong>${instanceId}</strong> | Zone: ${availabilityZone}</p>
-            </div>
-
-            <div class="box">
-                <h2>🛠 System Configuration</h2>
-                <div style="display: flex; gap: 10px;">
-                    <form action="/setup" method="POST"><button class="success">Initialize DB & Table</button></form>
-                    <form action="/drop" method="POST"><button class="danger">⚠ Reset (Drop Table)</button></form>
+    pool.query(commentQuery, (err, comments) => {
+        res.send(`
+        <html>
+            <head>
+                <title>Monolith Dashboard</title>
+                <style>
+                    body { font-family: 'Segoe UI', sans-serif; padding: 20px; max-width: 900px; margin: auto; background: #f0f2f5; }
+                    .server-info { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 25px; border-radius: 12px; text-align: center; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+                    .box { background: white; padding: 20px; margin-bottom: 20px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+                    .auth-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+                    input, select { padding: 10px; border: 1px solid #ddd; border-radius: 6px; margin-bottom: 10px; }
+                    button { cursor: pointer; padding: 10px 15px; border: none; border-radius: 6px; font-weight: bold; color: white; background: #3498db; }
+                    .success { background: #2ecc71; }
+                    .danger { background: #e74c3c; }
+                    .comment-item { border-bottom: 1px solid #eee; padding: 10px 0; }
+                    .username { font-weight: bold; color: #764ba2; }
+                    iframe { width: 100%; height: 300px; border: none; background: #fafafa; border-radius: 8px; }
+                </style>
+            </head>
+            <body>
+                <div class="server-info">
+                    <h1>Cloud Inventory Monolith 🚀</h1>
+                    <p>Serving from: <strong>${instanceId}</strong> (${availabilityZone})</p>
                 </div>
-            </div>
 
-            <div class="grid">
                 <div class="box">
-                    <h2>➕ Add Product</h2>
+                    ${!user ? `
+                        <h2>🔐 User Access</h2>
+                        <div class="auth-grid">
+                            <form action="/register" method="POST">
+                                <h3>Register</h3>
+                                <input type="text" name="username" placeholder="New Username" required><br>
+                                <input type="password" name="password" placeholder="New Password" required><br>
+                                <button class="success">Create Account</button>
+                            </form>
+                            <form action="/login" method="POST">
+                                <h3>Login</h3>
+                                <input type="text" name="username" placeholder="Username" required><br>
+                                <input type="password" name="password" placeholder="Password" required><br>
+                                <button>Sign In</button>
+                            </form>
+                        </div>
+                    ` : `
+                        <h2>Welcome back, <span class="username">${user.username}</span>!</h2>
+                        <a href="/logout"><button class="danger">Logout</button></a>
+                    `}
+                </div>
+
+                <div class="box">
+                    <h2>📦 Inventory Management</h2>
                     <form action="/insert" method="POST">
                         <input type="text" name="name" placeholder="Product Name" required>
-                        <input type="number" name="price" placeholder="Price" step="0.01" required style="width: 80px;">
-                        <button>Add</button>
+                        <input type="number" name="price" placeholder="Price" step="0.01" required>
+                        <button class="success">Add Item</button>
                     </form>
+                    <iframe src="/view"></iframe>
                 </div>
 
                 <div class="box">
-                    <h2>🔍 Search & Filter</h2>
-                    <form action="/view" method="GET" target="dataFrame">
-                        <input type="text" name="search" placeholder="Search..." style="width: 120px;">
-                        <select name="sort">
-                            <option value="id_asc">Oldest</option>
-                            <option value="price_asc">Price: Low</option>
-                            <option value="price_desc">Price: High</option>
-                        </select>
-                        <button class="warning">Go</button>
-                    </form>
+                    <h2>💬 Discussion Board</h2>
+                    ${user ? `
+                        <form action="/comment" method="POST">
+                            <input type="text" name="content" placeholder="Share your thoughts..." style="width: 80%;" required>
+                            <button>Post</button>
+                        </form>
+                    ` : `<p><i>Log in to participate in the discussion.</i></p>`}
+                    
+                    <div class="comments-list">
+                        ${comments && comments.length > 0 ? comments.map(c => `
+                            <div class="comment-item">
+                                <span class="username">${c.username}</span>: ${c.content}
+                                <br><small style="color:gray">${c.created_at}</small>
+                            </div>
+                        `).join('') : '<p>No comments yet.</p>'}
+                    </div>
                 </div>
-            </div>
 
-            <div class="box">
-                <h2>✏️ Manage Inventory</h2>
-                <div style="display: flex; gap: 15px; flex-wrap: wrap;">
-                    <form action="/update" method="POST">
-                        <input type="number" name="id" placeholder="ID" style="width: 60px;" required>
-                        <input type="text" name="name" placeholder="New Name" required>
-                        <input type="number" name="price" placeholder="New Price" step="0.01" required style="width: 80px;">
-                        <button>Update</button>
-                    </form>
-                    <form action="/delete" method="POST">
-                        <input type="number" name="id" placeholder="ID" style="width: 60px;" required>
-                        <button class="danger">Delete</button>
-                    </form>
+                <div class="box">
+                    <form action="/setup" method="POST"><button>Reset & Re-Initialize Database</button></form>
                 </div>
-            </div>
-
-            <div class="box">
-                <h2>📊 Live Analytics</h2>
-                <iframe name="dataFrame" src="/view"></iframe>
-            </div>
-        </body>
-    </html>
-    `);
+            </body>
+        </html>
+        `);
+    });
 });
 
-// --- API ROUTES (Unchanged) ---
+// --- DATABASE SETUP (Updated for Users and Comments) ---
 app.post('/setup', (req, res) => {
     const tempCon = mysql.createConnection({ host: dbConfig.host, user: dbConfig.user, password: dbConfig.password });
     tempCon.connect(err => {
-        if (err) return res.send("DB Connection Failed: " + err.message);
+        if (err) return res.send("Connection Failed: " + err.message);
         tempCon.query(`CREATE DATABASE IF NOT EXISTS ${dbConfig.database}`, (err) => {
-            if (err) { tempCon.end(); return res.send("Create DB Failed: " + err.message); }
             tempCon.changeUser({ database: dbConfig.database }, (err) => {
-                if (err) { tempCon.end(); return res.send("Change DB Failed: " + err.message); }
-                const sql = `CREATE TABLE IF NOT EXISTS products (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(255), price DECIMAL(10,2), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`;
-                tempCon.query(sql, (err) => {
-                    tempCon.end();
-                    if (err) return res.send("Create Table Failed: " + err.message);
-                    res.send("<h1>✅ System Initialized!</h1><a href='/'>Go Back</a>");
-                });
+                const queries = [
+                    `CREATE TABLE IF NOT EXISTS users (id INT AUTO_INCREMENT PRIMARY KEY, username VARCHAR(50) UNIQUE, password_hash VARCHAR(255), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`,
+                    `CREATE TABLE IF NOT EXISTS products (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(255), price DECIMAL(10,2), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`,
+                    `CREATE TABLE IF NOT EXISTS comments (id INT AUTO_INCREMENT PRIMARY KEY, user_id INT, content TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)`
+                ];
+                
+                queries.forEach(q => tempCon.query(q));
+                setTimeout(() => { tempCon.end(); res.redirect('/'); }, 1000);
             });
         });
     });
 });
 
-app.get('/view', (req, res) => {
-    let query = "SELECT * FROM products";
-    let statsQuery = "SELECT COUNT(*) as count, AVG(price) as avg, MIN(price) as min, MAX(price) as max FROM products";
-    let params = [];
-    if (req.query.search) {
-        query += " WHERE name LIKE ?";
-        statsQuery += " WHERE name LIKE ?";
-        params.push(`%${req.query.search}%`);
-    }
-    if (req.query.sort === 'price_asc') query += " ORDER BY price ASC";
-    else if (req.query.sort === 'price_desc') query += " ORDER BY price DESC";
-    else query += " ORDER BY id ASC";
-
-    pool.query(statsQuery, params, (err, stats) => {
-        if (err) return res.send(`<h3 style='color:red'>Error: ${err.message} (Run Setup first)</h3>`);
-        pool.query(query, params, (err, rows) => {
-            if (err) return res.send("Error: " + err.message);
-            const s = stats[0];
-            let html = `
-                <style>
-                    body { font-family: sans-serif; padding: 10px; }
-                    table { width: 100%; border-collapse: collapse; }
-                    th, td { border-bottom: 1px solid #ddd; padding: 12px; text-align: left; }
-                    th { background-color: #f8f9fa; color: #666; }
-                    tr:hover { background-color: #f1f1f1; }
-                    .stats { padding: 15px; background: #e3f2fd; border-radius: 8px; margin-bottom: 15px; color: #0d47a1; }
-                </style>
-                <div class="stats">
-                    <strong>Stats:</strong> Found ${s.count} items | Avg: $${Number(s.avg).toFixed(2)}
-                </div>
-                <table><tr><th>ID</th><th>Name</th><th>Price</th><th>Added</th></tr>`;
-            if (rows.length === 0) html += "<tr><td colspan='4' style='text-align:center; padding:20px;'>No data found</td></tr>";
-            rows.forEach(row => { html += `<tr><td>${row.id}</td><td><b>${row.name}</b></td><td>$${row.price}</td><td>${row.created_at}</td></tr>`; });
-            html += "</table>";
-            res.send(html);
-        });
+// --- AUTH LOGIC ---
+app.post('/register', async (req, res) => {
+    const { username, password } = req.body;
+    const hash = await bcrypt.hash(password, 10);
+    pool.query('INSERT INTO users (username, password_hash) VALUES (?, ?)', [username, hash], (err) => {
+        if (err) return res.send("Error: User exists. <a href='/'>Back</a>");
+        res.send("Registration Success! <a href='/'>Login now</a>");
     });
 });
 
-app.post('/insert', (req, res) => { pool.query('INSERT INTO products (name, price) VALUES (?, ?)', [req.body.name, req.body.price], (err) => { res.redirect('/'); }); });
-app.post('/update', (req, res) => { pool.query('UPDATE products SET name = ?, price = ? WHERE id = ?', [req.body.name, req.body.price, req.body.id], (err) => { res.redirect('/'); }); });
-app.post('/delete', (req, res) => { pool.query('DELETE FROM products WHERE id = ?', [req.body.id], (err) => { res.redirect('/'); }); });
-app.post('/drop', (req, res) => { pool.query('DROP TABLE products', (err) => { res.send("<h1>💥 Table Dropped!</h1><a href='/'>Go Back</a>"); }); });
+app.post('/login', (req, res) => {
+    const { username, password } = req.body;
+    pool.query('SELECT * FROM users WHERE username = ?', [username], async (err, results) => {
+        if (results.length > 0) {
+            const match = await bcrypt.compare(password, results[0].password_hash);
+            if (match) {
+                req.session.user = { id: results[0].id, username: results[0].username };
+                return res.redirect('/');
+            }
+        }
+        res.send("Invalid credentials. <a href='/'>Back</a>");
+    });
+});
 
-app.listen(3000, () => console.log('Vibrant Dashboard running on port 3000'));
+app.get('/logout', (req, res) => { req.session.destroy(); res.redirect('/'); });
+
+// --- COMMENT LOGIC ---
+app.post('/comment', (req, res) => {
+    if (!req.session.user) return res.status(401).send("Unauthorized");
+    pool.query('INSERT INTO comments (user_id, content) VALUES (?, ?)', [req.session.user.id, req.body.content], () => {
+        res.redirect('/');
+    });
+});
+
+// --- INVENTORY LOGIC ---
+app.get('/view', (req, res) => {
+    pool.query("SELECT * FROM products ORDER BY id DESC", (err, rows) => {
+        if (err) return res.send("Run Setup First.");
+        let html = '<style>body{font-family:sans-serif; font-size:14px;} table{width:100%; border-collapse:collapse;} td,th{padding:8px; border-bottom:1px solid #ddd;}</style><table><tr><th>ID</th><th>Item</th><th>Price</th></tr>';
+        rows.forEach(r => html += `<tr><td>${r.id}</td><td>${r.name}</td><td>$${r.price}</td></tr>`);
+        res.send(html + '</table>');
+    });
+});
+
+app.post('/insert', (req, res) => {
+    pool.query('INSERT INTO products (name, price) VALUES (?, ?)', [req.body.name, req.body.price], () => res.redirect('/'));
+});
+
+app.listen(3000, () => console.log('Monolith online on port 3000'));
