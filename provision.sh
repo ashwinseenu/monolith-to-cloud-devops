@@ -25,7 +25,7 @@ su - ubuntu -c '
     cd /home/ubuntu/app
 
     # Install Dotenv (Local dependency)
-    npm install dotenv express mysql2 body-parser
+    npm install dotenv express mysql2 body-parser express-session
 
     # Install Project Dependencies
     if [ -f package.json ]; then
@@ -41,10 +41,10 @@ su - ubuntu -c '
     if [ -f server.js ]; then
         echo "Starting server.js..."
         # --node-args loads .env before the app starts
-        pm2 start server.js --node-args="-r dotenv/config"
+        pm2 start serverv2.js --node-args="-r dotenv/config"
         pm2 save
     else
-        echo "WARNING: server.js not found, skipping start."
+        echo "WARNING: serverv2.js not found, skipping start."
     fi
 '
 
